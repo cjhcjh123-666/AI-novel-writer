@@ -95,5 +95,5 @@ MIT License
 ## 联系方式
 
 如有任何问题或建议，欢迎联系：
-- GitHub: [yourusername](https://github.com/yourusername)
-- Email: your.email@example.com
+- GitHub: [cjhcjh123-666]((https://github.com/cjhcjh123-666))
+- Email: 551512053@qq.com
