@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI小说创作助手</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>AI小说创作助手</h1>
+        
+        <!-- 小说设置部分 -->
+        <div id="novel-setup" class="input-section">
+            <div class="form-group">
+                <label for="title">小说标题：</label>
+                <input type="text" id="title" required>
+            </div>
+            <div class="form-group">
+                <label for="genre">小说类型：</label>
+                <input type="text" id="genre" required>
+            </div>
+            <div class="form-group">
+                <label for="outline">小说大纲：</label>
+                <textarea id="outline" rows="5" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="total-chapters">总章节数：</label>
+                <input type="number" id="total-chapters" min="1" value="10" required>
+            </div>
+            <button id="start-btn" onclick="startNovel()">开始创作</button>
+        </div>
+
+        <!-- 章节生成部分 -->
+        <div id="chapter-generation" class="output-section" style="display: none;">
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div id="progress-fill"></div>
+                </div>
+                <div class="progress-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">完成度：</span>
+                        <span id="completion-percentage" class="stat-value">0%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">章节进度：</span>
+                        <span id="chapters-progress" class="stat-value">0/0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">总字数：</span>
+                        <span id="total-words" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">平均每章字数：</span>
+                        <span id="avg-words" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">预计剩余时间：</span>
+                        <span id="remaining-time" class="stat-value">计算中...</span>
+                    </div>
+                </div>
+            </div>
+            <div id="output" class="output-content"></div>
+        </div>
+    </div>
+
+    <script>
+        function startNovel() {
+            const title = document.getElementById('title').value;
+            const genre = document.getElementById('genre').value;
+            const outline = document.getElementById('outline').value;
+            const totalChapters = document.getElementById('total-chapters').value;
+            
+            if (!title || !genre || !outline || !totalChapters) {
+                alert('请填写所有必填项！');
+                return;
+            }
+            
+            // 显示加载状态
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('start-btn').textContent = '正在生成...';
+            
+            // 立即显示进度部分
+            document.getElementById('novel-setup').style.display = 'none';
+            document.getElementById('chapter-generation').style.display = 'block';
+            
+            fetch('/start_novel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    title: title,
+                    genre: genre,
+                    outline: outline,
+                    total_chapters: parseInt(totalChapters)
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'resume') {
+                    if (confirm(data.message)) {
+                        resumeNovel();
+                    }
+                } else if (data.status === 'generating' || data.status === 'complete') {
+                    updateProgress(data.progress);
+                    if (data.chapter) {
+                        document.getElementById('output').innerHTML = data.chapter;
+                    }
+                    if (data.status === 'generating') {
+                        // 继续生成下一章
+                        resumeNovel();
+                    }
+                } else {
+                    alert(data.message || '生成失败，请重试！');
+                    document.getElementById('start-btn').disabled = false;
+                    document.getElementById('start-btn').textContent = '开始创作';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('生成失败，请重试！');
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('start-btn').textContent = '开始创作';
+            });
+        }
+        
+        function resumeNovel() {
+            fetch('/resume_novel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'generating' || data.status === 'complete') {
+                    updateProgress(data.progress);
+                    if (data.chapter) {
+                        document.getElementById('output').innerHTML = data.chapter;
+                    }
+                    if (data.status === 'generating') {
+                        // 继续生成下一章
+                        setTimeout(resumeNovel, 1000);
+                    }
+                } else {
+                    alert(data.message || '生成失败，请重试！');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('生成失败，请重试！');
+            });
+        }
+        
+        function updateProgress(progress) {
+            document.getElementById('progress-fill').style.width = `${progress.completion_percentage}%`;
+            document.getElementById('completion-percentage').textContent = `${progress.completion_percentage}%`;
+            document.getElementById('chapters-progress').textContent = `${progress.chapters_completed}/${progress.total_chapters}`;
+            document.getElementById('total-words').textContent = progress.total_words;
+            document.getElementById('avg-words').textContent = progress.avg_words_per_chapter;
+            document.getElementById('remaining-time').textContent = progress.remaining_time;
+        }
+    </script>
+</body>
+</html> 
